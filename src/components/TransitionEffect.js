@@ -1,93 +1,25 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 const TransitionEffect = () => {
+  const reduceMotion = useReducedMotion();
+
+  if (reduceMotion) return null;
+
   return (
-    <>
-      <motion.div
-        className="
-          fixed
-          top-0
-          bottom-0
-          right-full
-          w-screen
-          h-screen
-          z-30
-          bg-primary
-          pointer-events-none
-        "
-        initial={{
-          x: "100%",
-          width: "100%",
-        }}
-        animate={{
-          x: "0%",
-          width: "0%",
-        }}
-        exit={{
-          x: ["0%", "100%"],
-          width: ["0%", "100%"],
-        }}
-        transition={{
-          duration: 0.8,
-          ease: "easeInOut",
-        }}
-      />
-
-      <motion.div
-        className="
-          fixed
-          top-0
-          bottom-0
-          right-full
-          w-screen
-          h-screen
-          z-20
-          bg-light
-          pointer-events-none
-        "
-        initial={{
-          x: "100%",
-          width: "100%",
-        }}
-        animate={{
-          x: "0%",
-          width: "0%",
-        }}
-        transition={{
-          delay: 0.2,
-          duration: 0.8,
-          ease: "easeInOut",
-        }}
-      />
-
-      <motion.div
-        className="
-          fixed
-          top-0
-          bottom-0
-          right-full
-          w-screen
-          h-screen
-          z-10
-          bg-dark
-          pointer-events-none
-        "
-        initial={{
-          x: "100%",
-          width: "100%",
-        }}
-        animate={{
-          x: "0%",
-          width: "0%",
-        }}
-        transition={{
-          delay: 0.4,
-          duration: 0.8,
-          ease: "easeInOut",
-        }}
-      />
-    </>
+    <motion.div
+      className="fixed inset-0 z-30 pointer-events-none bg-primary"
+      initial={{ opacity: 0.2, scaleX: 1 }}
+      animate={{ opacity: 0, scaleX: 0 }}
+      transition={{
+        duration: 0.28,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+      style={{
+        transformOrigin: "right center",
+        willChange: "transform, opacity",
+      }}
+    />
   );
 };
 
