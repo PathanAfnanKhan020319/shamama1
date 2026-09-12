@@ -1,0 +1,363 @@
+name: Apply portfolio performance patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/perf-optimize.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Patch heavy responsive components
+        shell: bash
+        run: |
+          python <<'PY'
+          from pathlib import Path
+          import re
+
+          def require_replace(text, old, new, label, count=1):
+              if old not in text:
+                  raise SystemExit(f"Missing patch target: {label}")
+              return text.replace(old, new, count)
+
+          # -------------------------------------------------
+          # Skills: mount only the correct desktop/mobile tree
+          # -------------------------------------------------
+          path = Path("src/components/Skills.js")
+          text = path.read_text(encoding="utf-8")
+
+          if 'useMediaQuery from "@/components/hooks/useMediaQuery"' not in text:
+              text = require_replace(
+                  text,
+                  '} from "@react-three/drei";\n',
+                  '} from "@react-three/drei";\nimport useMediaQuery from "@/components/hooks/useMediaQuery";\n',
+                  "Skills media-query import",
+              )
+
+          text = require_replace(
+              text,
+              'function UniverseIntro({\n  onSelect,\n  quality,\n  reducedMotion,\n}) {',
+              'function UniverseIntro({\n  onSelect,\n  quality,\n  reducedMotion,\n  isDesktop,\n  ready,\n}) {',
+              "UniverseIntro responsive props",
+          )
+
+          start = text.index("function UniverseIntro({")
+          end = text.index("/* ============================================================\n   TECH GRID", start)
+          segment = text[start:end]
+
+          if "{ready && isDesktop && (" not in segment:
+              segment = require_replace(
+                  segment,
+                  '      {/* DESKTOP UNIVERSE */}\n\n      <div',
+                  '      {/* DESKTOP UNIVERSE */}\n\n      {ready && isDesktop && (\n      <div',
+                  "desktop universe conditional",
+              )
+              segment = require_replace(
+                  segment,
+                  '      </div>\n\n      {/* MOBILE UNIVERSE */}',
+                  '      </div>\n      )}\n\n      {/* MOBILE UNIVERSE */}',
+                  "desktop universe conditional close",
+              )
+              segment = require_replace(
+                  segment,
+                  '      {/* MOBILE UNIVERSE */}\n\n      <div',
+                  '      {/* MOBILE UNIVERSE */}\n\n      {ready && !isDesktop && (\n      <div',
+                  "mobile universe conditional",
+              )
+              tail = '      </div>\n    </div>\n  );\n}\n\n'
+              replacement = '      </div>\n      )}\n    </div>\n  );\n}\n\n'
+              if tail not in segment:
+                  raise SystemExit("Missing patch target: mobile universe conditional close")
+              segment = segment.rsplit(tail, 1)[0] + replacement
+              text = text[:start] + segment + text[end:]
+
+          if 'frameloop={\n            reducedMotion\n              ? "demand"\n              : "always"\n          }' not in text:
+              text = require_replace(
+                  text,
+                  '        <Canvas\n          camera={{',
+                  '        <Canvas\n          frameloop={\n            reducedMotion\n              ? "demand"\n              : "always"\n          }\n          camera={{',
+                  "Skills reduced-motion frameloop",
+              )
+
+          main_start = text.index("const Skills = () => {")
+          main = text[main_start:]
+          if 'matches: isDesktop' not in main:
+              main = require_replace(
+                  main,
+                  '  const reducedMotion =\n    useReducedMotion();\n',
+                  '  const reducedMotion =\n    useReducedMotion();\n\n  const {\n    matches: isDesktop,\n    ready,\n  } = useMediaQuery(\n    "(min-width: 768px)"\n  );\n',
+                  "Skills desktop media state",
+              )
+
+          if 'isDesktop={\n          isDesktop\n        }' not in main:
+              main = require_replace(
+                  main,
+                  '        reducedMotion={Boolean(\n          reducedMotion\n        )}\n      />',
+                  '        reducedMotion={Boolean(\n          reducedMotion\n        )}\n        isDesktop={\n          isDesktop\n        }\n        ready={ready}\n      />',
+                  "UniverseIntro media props",
+              )
+
+          body_start = main.index("      {/* DESKTOP / LAPTOP */}")
+          body_end = main.index("    </section>", body_start)
+          body = main[body_start:body_end]
+          replacement_body = '''      {/* DESKTOP / LAPTOP */}
+
+      {ready && isDesktop ? (
+        <div
+          className="
+            md:hidden
+          "
+        >
+          <CinematicDesktop
+            active={active}
+            setActive={setActive}
+            chapterRefs={chapterRefs}
+            registerChapter={registerChapter}
+            quality={quality}
+            reducedMotion={Boolean(reducedMotion)}
+          />
+        </div>
+      ) : null}
+
+      {/* PHONE / SMALL TABLET */}
+
+      {ready && !isDesktop ? (
+        <MobileExperience
+          register={registerMobile}
+        />
+      ) : null}
+'''
+          main = main[:body_start] + replacement_body + main[body_end:]
+          text = text[:main_start] + main
+          path.write_text(text, encoding="utf-8")
+
+          # -------------------------------------------------
+          # Experience: never mount the 700vh desktop engine
+          # on mobile/tablet.
+          # -------------------------------------------------
+          path = Path("src/components/Experience.js")
+          text = path.read_text(encoding="utf-8")
+
+          if 'useMediaQuery from "@/components/hooks/useMediaQuery"' not in text:
+              text = require_replace(
+                  text,
+                  '} from "framer-motion";\n',
+                  '} from "framer-motion";\nimport useMediaQuery from "@/components/hooks/useMediaQuery";\n',
+                  "Experience media-query import",
+              )
+
+          main_start = text.index("const Experience = () => {")
+          export_end = text.index("export default Experience;", main_start)
+          export_end += len("export default Experience;")
+          new_main = '''const Experience = () => {
+  const {
+    matches: isDesktop,
+    ready,
+  } = useMediaQuery("(min-width: 768px)");
+
+  return (
+    <section
+      id="experience"
+      className="
+        relative
+        my-64
+        w-full
+        md:my-32
+      "
+    >
+      {/* CINEMATIC TRAILER INTRO */}
+      <ExperienceIntro />
+
+      {/* Only one responsive experience tree is mounted. */}
+      {ready ? (
+        isDesktop ? (
+          <div className="md:hidden">
+            <DesktopExperience />
+          </div>
+        ) : (
+          <MobileExperience />
+        )
+      ) : (
+        <div
+          aria-hidden="true"
+          className="h-[45vh] w-full md:h-[30vh]"
+        />
+      )}
+
+      {/* TRAILER END */}
+      <div
+        className="
+          flex
+          items-center
+          justify-between
+          border-t
+          border-dark/[0.08]
+          dark:border-light/[0.08]
+          py-8
+        "
+      >
+        <span
+          className="
+            text-[7px]
+            font-black
+            uppercase
+            tracking-[0.2em]
+            text-dark/30
+            dark:text-light/30
+          "
+        >
+          CAREER ARCHIVE
+        </span>
+
+        <span
+          className="
+            text-[7px]
+            font-black
+            uppercase
+            tracking-[0.2em]
+            text-dark/30
+            dark:text-light/30
+          "
+        >
+          07 / 07 — TRAILER COMPLETE
+        </span>
+      </div>
+    </section>
+  );
+};
+
+export default Experience;'''
+          text = text[:main_start] + new_main + text[export_end:]
+          path.write_text(text, encoding="utf-8")
+
+          # -------------------------------------------------
+          # About: defer lower heavy sections, don't mount
+          # hidden WebGL/cursor effects on touch/mobile.
+          # -------------------------------------------------
+          path = Path("src/pages/about.js")
+          text = path.read_text(encoding="utf-8")
+
+          if 'import dynamic from "next/dynamic";' not in text:
+              text = require_replace(
+                  text,
+                  'import Image from "next/image";\n',
+                  'import Image from "next/image";\nimport dynamic from "next/dynamic";\n',
+                  "About dynamic import",
+              )
+
+          text = text.replace('import Skills from "@/components/Skills";\n', '')
+          text = text.replace('import Experience from "@/components/Experience";\n', '')
+          text = text.replace('import Education from "@/components/Education";\n', '')
+
+          if 'import DeferredSection from "@/components/DeferredSection";' not in text:
+              text = require_replace(
+                  text,
+                  'import TransitionEffect from "@/components/TransitionEffect";\n',
+                  'import TransitionEffect from "@/components/TransitionEffect";\nimport DeferredSection from "@/components/DeferredSection";\nimport useMediaQuery from "@/components/hooks/useMediaQuery";\n\nconst Skills = dynamic(() => import("@/components/Skills"), { ssr: false });\nconst Experience = dynamic(() => import("@/components/Experience"), { ssr: false });\nconst Education = dynamic(() => import("@/components/Education"), { ssr: false });\n',
+                  "About deferred imports",
+              )
+
+          text = require_replace(
+              text,
+              'function HolographicPortrait() {',
+              'function HolographicPortrait({ enableWebGL = false }) {',
+              "Holographic portrait prop",
+          )
+          text = require_replace(
+              text,
+              '        <NeuralUniverse />',
+              '        {enableWebGL ? <NeuralUniverse /> : null}',
+              "Conditional portrait WebGL",
+          )
+
+          text = text.replace('        dpr={[1, 1.5]}', '        dpr={[1, 1.25]}', 1)
+          text = text.replace('          count={42}', '          count={28}', 1)
+
+          about_start = text.index("const About = () => {")
+          about = text[about_start:]
+
+          if 'matches: isDesktop' not in about:
+              about = require_replace(
+                  about,
+                  'const About = () => {\n  return (',
+                  'const About = () => {\n  const { matches: isDesktop, ready: viewportReady } =\n    useMediaQuery("(min-width: 768px)");\n  const { matches: hasFinePointer, ready: pointerReady } =\n    useMediaQuery("(hover: hover) and (pointer: fine)");\n\n  return (',
+                  "About media state",
+              )
+
+          about = require_replace(
+              about,
+              '          overflow-hidden\n',
+              '          overflow-x-clip\n',
+              "About sticky-safe overflow",
+          )
+          about = require_replace(
+              about,
+              '        <CursorGlow />',
+              '        {pointerReady && hasFinePointer ? <CursorGlow /> : null}',
+              "Fine pointer cursor glow",
+          )
+          about = require_replace(
+              about,
+              '              <HolographicPortrait />',
+              '              <HolographicPortrait\n                enableWebGL={viewportReady && isDesktop}\n              />',
+              "Desktop-only portrait WebGL",
+          )
+
+          old_sections = '''          <Skills />
+
+          <Experience />
+
+          <Education />'''
+          new_sections = '''          <DeferredSection
+            rootMargin="900px 0px"
+            minHeight={900}
+          >
+            <Skills />
+          </DeferredSection>
+
+          <DeferredSection
+            rootMargin="900px 0px"
+            minHeight={900}
+          >
+            <Experience />
+          </DeferredSection>
+
+          <DeferredSection
+            rootMargin="700px 0px"
+            minHeight={700}
+          >
+            <Education />
+          </DeferredSection>'''
+          about = require_replace(
+              about,
+              old_sections,
+              new_sections,
+              "Deferred heavy about sections",
+          )
+
+          text = text[:about_start] + about
+          path.write_text(text, encoding="utf-8")
+
+          print("Performance patch applied successfully")
+          PY
+
+      - name: Commit optimized components
+        shell: bash
+        run: |
+          git config user.name "portfolio-performance-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/Skills.js src/components/Experience.js src/pages/about.js
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "perf: optimize about skills and experience on mobile"
+            git push
+          fi
