@@ -26,6 +26,7 @@ import {
   Points,
   Sparkles,
 } from "@react-three/drei";
+import useMediaQuery from "@/components/hooks/useMediaQuery";
 
 /* ============================================================
    SKILLS DATA
@@ -1493,6 +1494,11 @@ const IntelligenceCanvas =
 
       return (
         <Canvas
+          frameloop={
+            reducedMotion
+              ? "demand"
+              : "always"
+          }
           camera={{
             position: [
               0,
@@ -1997,6 +2003,8 @@ function UniverseIntro({
   onSelect,
   quality,
   reducedMotion,
+  isDesktop,
+  ready,
 }) {
   return (
     <div
@@ -2077,6 +2085,7 @@ function UniverseIntro({
 
       {/* DESKTOP UNIVERSE */}
 
+      {ready && isDesktop && (
       <div
         className="
           relative
@@ -2253,9 +2262,11 @@ function UniverseIntro({
           </p>
         </motion.div>
       </div>
+      )}
 
       {/* MOBILE UNIVERSE */}
 
+      {ready && !isDesktop && (
       <div
         className="
           mt-12
@@ -2420,6 +2431,7 @@ function UniverseIntro({
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
@@ -3941,6 +3953,13 @@ const Skills = () => {
   const reducedMotion =
     useReducedMotion();
 
+  const {
+    matches: isDesktop,
+    ready,
+  } = useMediaQuery(
+    "(min-width: 768px)"
+  );
+
   const quality =
     useWebGLMode();
 
@@ -4118,44 +4137,38 @@ const Skills = () => {
         reducedMotion={Boolean(
           reducedMotion
         )}
+        isDesktop={
+          isDesktop
+        }
+        ready={ready}
       />
 
       {/* DESKTOP / LAPTOP */}
 
-      <div
-        className="
-          md:hidden
-        "
-      >
-        <CinematicDesktop
-          active={
-            active
-          }
-          setActive={
-            setActive
-          }
-          chapterRefs={
-            chapterRefs
-          }
-          registerChapter={
-            registerChapter
-          }
-          quality={
-            quality
-          }
-          reducedMotion={Boolean(
-            reducedMotion
-          )}
-        />
-      </div>
+      {ready && isDesktop ? (
+        <div
+          className="
+            md:hidden
+          "
+        >
+          <CinematicDesktop
+            active={active}
+            setActive={setActive}
+            chapterRefs={chapterRefs}
+            registerChapter={registerChapter}
+            quality={quality}
+            reducedMotion={Boolean(reducedMotion)}
+          />
+        </div>
+      ) : null}
 
       {/* PHONE / SMALL TABLET */}
 
-      <MobileExperience
-        register={
-          registerMobile
-        }
-      />
+      {ready && !isDesktop ? (
+        <MobileExperience
+          register={registerMobile}
+        />
+      ) : null}
     </section>
   );
 };

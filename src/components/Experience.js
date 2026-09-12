@@ -13,6 +13,7 @@ import {
   useScroll,
   useSpring,
 } from "framer-motion";
+import useMediaQuery from "@/components/hooks/useMediaQuery";
 
 /* ============================================================
    EXPERIENCE DATA
@@ -3008,49 +3009,49 @@ const ExperienceIntro =
 ============================================================ */
 
 const Experience = () => {
+  const {
+    matches: isDesktop,
+    ready,
+  } = useMediaQuery("(min-width: 768px)");
+
   return (
     <section
       id="experience"
       className="
         relative
-
         my-64
-
         w-full
-
         md:my-32
       "
     >
       {/* CINEMATIC TRAILER INTRO */}
-
       <ExperienceIntro />
 
-      {/* COMPUTER / LAPTOP */}
-
-      <div
-        className="
-          md:hidden
-        "
-      >
-        <DesktopExperience />
-      </div>
-
-      {/* PHONE / TABLET */}
-
-      <MobileExperience />
+      {/* Only one responsive experience tree is mounted. */}
+      {ready ? (
+        isDesktop ? (
+          <div className="md:hidden">
+            <DesktopExperience />
+          </div>
+        ) : (
+          <MobileExperience />
+        )
+      ) : (
+        <div
+          aria-hidden="true"
+          className="h-[45vh] w-full md:h-[30vh]"
+        />
+      )}
 
       {/* TRAILER END */}
-
       <div
         className="
           flex
           items-center
           justify-between
-
           border-t
           border-dark/[0.08]
           dark:border-light/[0.08]
-
           py-8
         "
       >
@@ -3058,10 +3059,8 @@ const Experience = () => {
           className="
             text-[7px]
             font-black
-
             uppercase
             tracking-[0.2em]
-
             text-dark/30
             dark:text-light/30
           "
@@ -3073,16 +3072,13 @@ const Experience = () => {
           className="
             text-[7px]
             font-black
-
             uppercase
             tracking-[0.2em]
-
             text-dark/30
             dark:text-light/30
           "
         >
-          07 / 07 —
-          TRAILER COMPLETE
+          07 / 07 — TRAILER COMPLETE
         </span>
       </div>
     </section>

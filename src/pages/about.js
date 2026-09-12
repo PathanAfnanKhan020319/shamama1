@@ -2,6 +2,7 @@ import AnimatedText from "@/components/AnimatedText";
 import Layout from "../components/Layout";
 import Head from "next/head";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import React, {
   useEffect,
   useMemo,
@@ -24,10 +25,13 @@ import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Line, Sparkles } from "@react-three/drei";
 
-import Skills from "@/components/Skills";
-import Experience from "@/components/Experience";
-import Education from "@/components/Education";
 import TransitionEffect from "@/components/TransitionEffect";
+import DeferredSection from "@/components/DeferredSection";
+import useMediaQuery from "@/components/hooks/useMediaQuery";
+
+const Skills = dynamic(() => import("@/components/Skills"), { ssr: false });
+const Experience = dynamic(() => import("@/components/Experience"), { ssr: false });
+const Education = dynamic(() => import("@/components/Education"), { ssr: false });
 
 /* =========================================================
    ANIMATED NUMBER
@@ -420,7 +424,7 @@ function NeuralUniverse() {
           position: [0, 0, 6.7],
           fov: 42,
         }}
-        dpr={[1, 1.5]}
+        dpr={[1, 1.25]}
         gl={{
           alpha: true,
           antialias: true,
@@ -443,7 +447,7 @@ function NeuralUniverse() {
         <NeuralField />
 
         <Sparkles
-          count={42}
+          count={28}
           scale={[7, 7, 5]}
           size={1.1}
           speed={0.07}
@@ -519,7 +523,7 @@ function CursorGlow() {
    HOLOGRAPHIC PORTRAIT
 ========================================================= */
 
-function HolographicPortrait() {
+function HolographicPortrait({ enableWebGL = false }) {
   const containerRef = useRef(null);
 
   const mouseX = useMotionValue(0);
@@ -630,7 +634,7 @@ function HolographicPortrait() {
           md:hidden
         "
       >
-        <NeuralUniverse />
+        {enableWebGL ? <NeuralUniverse /> : null}
       </motion.div>
 
       {/* =============================================
@@ -1657,6 +1661,11 @@ function PhilosophyTicker() {
 ========================================================= */
 
 const About = () => {
+  const { matches: isDesktop, ready: viewportReady } =
+    useMediaQuery("(min-width: 768px)");
+  const { matches: hasFinePointer, ready: pointerReady } =
+    useMediaQuery("(hover: hover) and (pointer: fine)");
+
   return (
     <>
       <Head>
@@ -1688,7 +1697,7 @@ const About = () => {
           items-center
           justify-center
 
-          overflow-hidden
+          overflow-x-clip
 
           text-dark
           dark:text-light
@@ -1698,7 +1707,7 @@ const About = () => {
             AMBIENT CURSOR
         ================================================= */}
 
-        <CursorGlow />
+        {pointerReady && hasFinePointer ? <CursorGlow /> : null}
 
         {/* =================================================
             BACKGROUND GRID
@@ -2064,7 +2073,9 @@ const About = () => {
                 md:col-span-8
               "
             >
-              <HolographicPortrait />
+              <HolographicPortrait
+                enableWebGL={viewportReady && isDesktop}
+              />
             </motion.div>
 
             {/* =================================================
@@ -2221,11 +2232,26 @@ const About = () => {
               EXISTING SECTIONS
           ================================================= */}
 
-          <Skills />
+          <DeferredSection
+            rootMargin="900px 0px"
+            minHeight={900}
+          >
+            <Skills />
+          </DeferredSection>
 
-          <Experience />
+          <DeferredSection
+            rootMargin="900px 0px"
+            minHeight={900}
+          >
+            <Experience />
+          </DeferredSection>
 
-          <Education />
+          <DeferredSection
+            rootMargin="700px 0px"
+            minHeight={700}
+          >
+            <Education />
+          </DeferredSection>
         </Layout>
       </main>
     </>
